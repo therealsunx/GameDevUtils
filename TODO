@@ -1,0 +1,25 @@
+# TODO for EndGame Dash
+
+> Player
+	> Controls for player
+
+	> Collisions
+		> Obstacle Collisions
+	
+	> Triggers Handling
+		> Portal
+		> Anti Gravity
+
+> Game Play and Data handling
+	> Game play timing
+	> Player progress handling
+
+> Environment
+	> Level Templates designing
+	> Level data fill
+	> Tiles designing
+	> Lighting
+
+> Audio
+	> Sound effects
+	> Game musics
