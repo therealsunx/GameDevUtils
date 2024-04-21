@@ -2,9 +2,9 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour {
 
-    [Header("Movement")]
-    [SerializeField] float speed;
-    Vector2 velocity, facingDir;
+    public float speed;
+    public float throwForce;
+    [HideInInspector] public Vector2 velocity, facingDir;
 
     [Header("Jump")]
     [SerializeField] float jumpSpeed;
