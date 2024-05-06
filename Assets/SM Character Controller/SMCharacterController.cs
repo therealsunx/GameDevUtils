@@ -1,17 +1,13 @@
 using System.Collections;
+using TMPro;
 using UnityEngine;
 
 public class SMCharacterController : MonoBehaviour {
     
     [Header("Movement Modifiers")]
-    [SerializeField] float maxSpeed;
-    [SerializeField] float walkForce, jumpForce, dashForce, dashTime;
-    Vector2 direction;
-    float speed;
-    bool grounded, onwater;
-
-    [Header("Constants")]
-    [SerializeField] float runThreshold;
+    [SerializeField] float walkSpeed;
+    [SerializeField] float runMultiplier, jumpVelocity, dashVelocity, dashTime;
+    Vector2 mouseDir, velocity, input;
 
     [Header("LayerMasks")]
     [SerializeField] LayerMask groundLayer;
@@ -21,6 +17,7 @@ public class SMCharacterController : MonoBehaviour {
     [Header("Refs")]
     [SerializeField] Transform groundCheckPos;
     [SerializeField] Transform aboveHeadCheck;
+    [SerializeField] TMP_Text stateText;
 
     STATE curState = STATE.IDLE;
     STATE nextState;
@@ -28,65 +25,102 @@ public class SMCharacterController : MonoBehaviour {
     Rigidbody2D rb;
     Camera cam;
 
+    // Triggers
+    bool t_jump, dash_t, run_t, grab_t, grabbableNearby, grounded, onWater;
+
     void Start(){
         rb = GetComponent<Rigidbody2D>();
         cam = Camera.main;
         grounded = Physics2D.OverlapCircle(groundCheckPos.position, 0.1f, groundLayer);
-        onwater = Physics2D.OverlapCircle(transform.position, 0.5f, waterLayer);
+        onWater = Physics2D.OverlapCircle(transform.position, 0.5f, waterLayer);
 
-        if(onwater) curState = STATE.SWIMMING;
+        if(onWater) curState = STATE.SWIMMING;
         else if(grounded) curState = STATE.IDLE;
         else curState = STATE.JUMPING;
+
+        stateText.text = curState.ToString();
     }
 
     void Update(){
-        speed = Mathf.Abs(rb.velocity.x);
-        grounded = Physics2D.OverlapCircle(groundCheckPos.position, 0.1f, groundLayer);
-        onwater = Physics2D.OverlapCircle(transform.position, 0.5f, waterLayer);
-        direction = cam.ScreenToWorldPoint(Input.mousePosition);
-
+        GetInputs();
         StateTransition();
+
+        stateText.text = curState.ToString();
+    }
+
+    void LateUpdate(){
+        curState = nextState;
+        rb.velocity = velocity;
+    }
+
+    void GetInputs(){
+        velocity = rb.velocity;
+        grounded = Physics2D.OverlapCircle(groundCheckPos.position, 0.1f, groundLayer);
+        onWater = Physics2D.OverlapCircle(transform.position, 0.5f, waterLayer);
+        mouseDir = (cam.ScreenToWorldPoint(Input.mousePosition) - transform.position).normalized;
+        input.Set(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+
+        t_jump = Input.GetKeyDown(KeyCode.Space);
+        dash_t = Input.GetKeyDown(KeyCode.Q);
+        run_t = Input.GetKey(KeyCode.LeftShift);
+        grab_t = Input.GetKeyDown(KeyCode.E);
+        grabbableNearby = Physics2D.OverlapCircle(transform.position, 0.5f, grabbableLayer);
     }
 
     void StateTransition(){
-        float xin = Input.GetAxisRaw("Horizontal");
-        float yin = Input.GetAxisRaw("Vertical");
-        bool jumpTrigger = Input.GetKeyDown(KeyCode.Space);
-        bool dashTrigger = Input.GetKeyDown(KeyCode.LeftShift);
-        bool grabTrigger = Input.GetKeyDown(KeyCode.E);
-        bool grabbableNearby = Physics2D.OverlapCircle(transform.position, 0.5f, grabbableLayer);
 
         switch(curState){
             case STATE.IDLE:
-                if(xin != 0f){
-                    HorizontalMovement(xin);
+                if(dash_t) StartCoroutine(Dash());
+                else if(input.x != 0f){
+                    HorizontalMovement(input.x);
                     nextState = STATE.WALKING;
                 }
-                if(jumpTrigger && grounded) Jump();
+                if(grab_t && grabbableNearby) nextState = STATE.CLIMBING;
+                else if(grounded){
+                    if(t_jump) Jump();
+                }else nextState = STATE.JUMPING;
                 break;
 
             case STATE.WALKING:
-                if(xin == 0f) nextState = STATE.IDLE;
-                else HorizontalMovement(xin);
-                
-                if(speed > runThreshold) nextState = STATE.RUNNING;
-                
-                if(jumpTrigger && grounded) Jump();
+                if(input.x == 0f) nextState = STATE.IDLE;
+                else if(run_t) {
+                    HorizontalMovement(input.x * runMultiplier);
+                    nextState = STATE.RUNNING;
+                }
+                else HorizontalMovement(input.x);
+
+                if(dash_t) StartCoroutine(Dash());
+                else if(grab_t && grabbableNearby) nextState = STATE.CLIMBING;
+                else if(grounded){
+                    if(t_jump) Jump();
+                }else nextState = STATE.JUMPING;
+
                 break;
 
             case STATE.RUNNING:
-                if(xin == 0f) nextState = STATE.IDLE;
-                else HorizontalMovement(xin);
+                if(input.x == 0f) nextState = STATE.IDLE;
+                else if(run_t) HorizontalMovement(input.x * runMultiplier);
+                else {
+                    nextState = STATE.WALKING;
+                    HorizontalMovement(input.x);
+                }
 
-                if(jumpTrigger && grounded) Jump();
+                if(dash_t) StartCoroutine(Dash());
+                else if(grab_t && grabbableNearby) nextState = STATE.CLIMBING;
+                else if(grounded){
+                    if(t_jump) Jump();
+                }else nextState = STATE.JUMPING;
                 break;
 
             case STATE.JUMPING:
-                if(rb.velocity.y < 0f) rb.gravityScale = 2.6f;
+                if(velocity.y < 0f) rb.gravityScale = 2.6f;
                 else rb.gravityScale = 1f;
-
-                if(onwater) {
-                    rb.gravityScale = -0.01f;
+                HorizontalMovement(input.x);
+                if(dash_t) StartCoroutine(Dash());
+                else if(grab_t && grabbableNearby) nextState = STATE.CLIMBING;
+                if(onWater) {
+                    rb.gravityScale = 0.1f;
                     nextState = STATE.SWIMMING;
                 } else if(grounded) {
                     rb.gravityScale = 1f;
@@ -96,89 +130,73 @@ public class SMCharacterController : MonoBehaviour {
 
             case STATE.SWIMMING:
                 bool onSurface = !Physics2D.Raycast(aboveHeadCheck.position, Vector2.up, 0.1f);
-                if(onSurface && jumpTrigger) {
+
+
+                if(dash_t) StartCoroutine(Dash());
+                else if(grab_t && grabbableNearby) nextState = STATE.CLIMBING;
+                else if(onSurface && t_jump) {
                     nextState = STATE.JUMPING;
                     rb.gravityScale = 1f;
                     Jump();
-                }else if(!onwater){
+                }else if(!onWater){
                     nextState = STATE.JUMPING;
                     rb.gravityScale = 1f;
+                }else {
+                    HorizontalMovement(input.x * 0.7f);
+                    VerticalMovement(input.y * 0.7f);
                 }
 
-                HorizontalMovement(xin);
-                VerticalMovement(yin);
                 break;
 
             case STATE.CLIMBING:
-                if(grabTrigger || !grabbableNearby){
+                if(dash_t) StartCoroutine(Dash());
+                if(grab_t || !grabbableNearby){
                     if(grounded) nextState = STATE.IDLE;
                     else nextState = STATE.JUMPING;
                 }
-                ClimbingMovement(yin);
+                VerticalMovement(input.y * 0.5f);
                 break;
         }
-        
-        if(curState != STATE.CLIMBING){
-            if(dashTrigger && curState != STATE.DASHING){
-                StartCoroutine(Dash());
-                rb.gravityScale = 1f;
-            }
-            else if(grabTrigger){
-                if(grabbableNearby) nextState = STATE.CLIMBING;
-                rb.gravityScale = 1f;
-            }
-        }
-    }
-
-    void LateUpdate(){
-        curState = nextState;
-    }
-
-    void ClimbingMovement(float i){
-        rb.velocity = Vector2.up * i * maxSpeed * 0.5f;
     }
 
     void HorizontalMovement(float i){
-        if(Mathf.Abs(rb.velocity.x) < maxSpeed) {
-            float mul = i <= 0f? i*(rb.velocity.x>0f?2:1):(rb.velocity.x<0f?2:1);
-            rb.AddForce(Vector2.right * walkForce * mul);
-        }
+        velocity.x = i * walkSpeed;
     }
 
     void VerticalMovement(float i){
-        if(Mathf.Abs(rb.velocity.y) < maxSpeed) {
-            float mul = i <= 0f? i*(rb.velocity.y>0f?2:1):(rb.velocity.y<0f?2:1);
-            rb.AddForce(Vector2.up* walkForce * mul);
-        }
+        velocity.y = i * walkSpeed;
     }
 
     void Jump(){
         nextState = STATE.JUMPING;
-        rb.AddForce(Vector2.up * jumpForce, ForceMode2D.Impulse);
+        velocity.y = jumpVelocity;
     }
 
     IEnumerator Dash(){
         nextState = STATE.DASHING;
-        rb.AddForce(Vector2.right * (direction.x < 0f?-dashForce:dashForce), ForceMode2D.Impulse);
+        // rb.AddForce(Vector2.right * (mouseDir.x < 0f?-dashVelocity:dashVelocity), ForceMode2D.Impulse);
+        velocity.x = (input.x!=0f?input.x : mouseDir.x<0f?-1f:1f) * dashVelocity;
+        velocity.y = 0f;
         yield return new WaitForSeconds(dashTime);
-        rb.velocity = Vector2.zero;
-        
-        if(grounded) nextState = STATE.IDLE;
+        velocity.x = 0f;
+
+        if(onWater) nextState = STATE.SWIMMING;
+        else if(grounded) nextState = STATE.IDLE;
         else nextState = STATE.JUMPING;
     }
 
-//    void OnTriggerEnter2D(Collider2D other){
-//        if(other.gameObject.layer == 4) {
-//            onwater = true;
-//        }
-//    }
-//
-//    void OnTriggerExit2D(Collider2D other){
-//        if(other.gameObject.layer == 4){
-//            onwater = false;
-//            Debug.Log("Chapaaak");
-//        }
-//    }
+    //    void OnTriggerEnter2D(Collider2D other){
+    //        if(other.gameObject.layer == 4) {
+    //            onWater = true;
+    //        }
+    //    }
+    //
+    //    void OnTriggerExit2D(Collider2D other){
+    //        if(other.gameObject.layer == 4){
+    //            onWater = false;
+    //            Debug.Log("Chapaaak");
+    //        }
+    //    }
 }
 
 //
