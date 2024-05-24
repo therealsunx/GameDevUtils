@@ -1,4 +1,4 @@
-using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public enum STATE{
@@ -9,5 +9,16 @@ public enum STATE{
     JUMPING = 0b1000,
     CLIMBING = 0b10000,
     SWIMMING = 0b100000
+}
+
+
+public class Node {
+    public Vector2 position;
+    public List<Node> neighbours;
+
+    public Node(Vector2 _position){
+        position = _position;
+        neighbours = new List<Node>();
+    }
 }
 
