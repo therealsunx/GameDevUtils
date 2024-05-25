@@ -11,6 +11,9 @@ public enum STATE{
     SWIMMING = 0b100000
 }
 
+public enum NodeType {
+    NONE=0, EDGE, CORNER
+}
 
 public class Node {
     public Vector2 position;
