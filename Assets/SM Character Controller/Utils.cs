@@ -12,16 +12,18 @@ public enum STATE{
 }
 
 public enum NodeType {
-    NONE=0, EDGE, CORNER
+    NONE=0, EDGE, CORNER, WAYPOINT
 }
 
 public class Node {
     public Vector2 position;
     public List<Node> neighbours;
+    public NodeType type;
 
-    public Node(Vector2 _position){
+    public Node(Vector2 _position, NodeType _type = NodeType.NONE){
         position = _position;
         neighbours = new List<Node>();
+        type = _type;
     }
 }
 
