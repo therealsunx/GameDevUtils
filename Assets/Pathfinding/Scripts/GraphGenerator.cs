@@ -6,18 +6,23 @@ using System.Linq;
 public class GraphGenerator : MonoBehaviour {
 
     [SerializeField] Tilemap tilemap;
-    Dictionary<Vector2Int, Node> nodes = new Dictionary<Vector2Int, Node>();
+    [HideInInspector] public Dictionary<Vector2Int, Node> nodes = new Dictionary<Vector2Int, Node>();
 
     void OnDrawGizmos(){
         if(nodes.Count == 0) GenerateGraph();
         foreach(Node node in nodes.Values){
             Gizmos.color = Color.green;
-            Gizmos.DrawSphere(node.position, node.type == NodeType.NONE? 0.1f:0.2f);
+            Gizmos.DrawSphere(node.position,  0.2f);
             foreach(Node n in node.neighbours){
-                Gizmos.color = Color.yellow;
+                Gizmos.color = Color.grey;
                 Gizmos.DrawLine(node.position, n.position);
             }
         }
+
+        // foreach(Vector2Int c in nodes.Keys){
+        // Gizmos.color = Color.red;
+        // Gizmos.DrawSphere(new Vector3(c.x, c.y, 0f), 0.2f);
+        // }
     }
 
     void GenerateGraph(){
@@ -31,20 +36,23 @@ public class GraphGenerator : MonoBehaviour {
     }
 
     void FilterNodes(){
-        nodes = nodes.Where(i => i.Value.type != NodeType.NONE).ToDictionary(i => i.Key, i=>i.Value);
+        nodes = nodes.Where(i => i.Value.type != 0).ToDictionary(i => i.Key, i=>i.Value);
     }
 
     void GenerateEdges(BoundsInt bounds){
         for(int y = bounds.y+1; y < bounds.yMax; y++){
             var nps = nodes.Keys.Where(k => k.y == y).OrderBy(i=>i.x).ToList();
-            bool brk = true;
-            for(int i=0; i<nps.Count; i++){
-                if(brk) brk = false;
-                else {
-                    nodes[nps[i]].neighbours.Add(nodes[nps[i-1]]);
-                    nodes[nps[i-1]].neighbours.Add(nodes[nps[i]]);
-                    if(nodes[nps[i]].type != NodeType.WAYPOINT) brk = true;
-                }
+            for(int i=0; i<nps.Count-1; i++){
+                Node c = nodes[nps[i]];
+                Node n = nodes[nps[i+1]];
+
+                if((c.type & (uint)NodeType.RCRNR) > 0) continue;
+                if((n.type & (uint)NodeType.LCRNR) > 0) continue;
+                if((c.type & (uint)NodeType.REDGE) > 0 && (n.type & (uint)NodeType.LEDGE) > 0)
+                    if((nps[i+1].x - nps[i].x) > 5) continue;
+
+                c.neighbours.Add(n);
+                n.neighbours.Add(c);
             }
         }
     }
@@ -52,27 +60,24 @@ public class GraphGenerator : MonoBehaviour {
     void GenerateNodes(BoundsInt bounds, TileBase[] tiles){
         Vector2Int pos = Vector2Int.zero;
 
-        System.Action<int, int, NodeType> addNode = (int x, int y, NodeType type) => {
+        System.Action<int, int, uint> addNode = (int x, int y, uint type) => {
             pos.x = bounds.x+x;
             pos.y = bounds.y+y;
             nodes.TryAdd(pos, new Node(tilemap.CellToWorld((Vector3Int)pos) + tilemap.tileAnchor, type));
         };
 
         System.Action<int, int, bool> addNodeDepthCheck = (int x, int y, bool right)=>{
-            addNode(x,y, NodeType.EDGE);
             bool exit = false;
             Vector2Int p = Vector2Int.zero, _p = new Vector2Int(bounds.x+x, bounds.y+y);
             for(int d=1; d <= 4; d++){
                 exit = true;
-                int n = 3;
-                for(int w=0; w<=5-d; w++){
+                for(int w=1; w<=6-d/2; w++){
                     p.y = bounds.y+y-d; p.x = bounds.x + x+ (right?w:-w);
-                    if(n<=0) break;
                     if(nodes.ContainsKey(p)){
                         nodes[p].neighbours.Add(nodes[_p]);
                         nodes[_p].neighbours.Add(nodes[p]);
-                        if(nodes[p].type == NodeType.NONE) nodes[p].type = NodeType.WAYPOINT;
-                        n--;
+                        if(nodes[p].type == (uint)NodeType.NONE) nodes[p].type = (uint)NodeType.JMPPT;
+                        break;
                     }else exit = false;
                 }
                 if(exit) break;
@@ -85,24 +90,26 @@ public class GraphGenerator : MonoBehaviour {
 
                 int i = x + y * bounds.size.x;
                 if(!tiles[i])continue; // only select cells on land
-
-                if(tiles[i+bounds.size.x]) continue; // check for ON-GROUND state
-                bool skip = false;
-                if(!tiles[i+1]) {
-                    addNodeDepthCheck(x+1, y+1, true);
-                    addNode(x, y+1, NodeType.WAYPOINT);
-                    skip = true;
-                }
-                if(!tiles[i-1]) {
-                    addNodeDepthCheck(x-1, y+1, false);
-                    addNode(x, y+1, NodeType.WAYPOINT);
-                    skip = true;
-                }
-                if(skip) continue;
-
                 i += bounds.size.x;
-                if(tiles[i+1] || tiles[i-1]) addNode(x, y+1, NodeType.CORNER);
-                else addNode(x,y+1, NodeType.NONE);
+                if(tiles[i]) continue; // check for ON-GROUND state
+
+                uint type = 0;
+                if(tiles[i-1]) type |= (uint) NodeType.LCRNR;
+                if(tiles[i+1]) type |= (uint) NodeType.RCRNR;
+                i -= bounds.size.x;
+                if(!tiles[i-1]) type |= (uint) NodeType.LEDGE;
+                if(!tiles[i+1]) type |= (uint) NodeType.REDGE;
+
+                if((type & (uint) NodeType.REDGE) > 0) {
+                    addNode(x, y+1, type);
+                    addNodeDepthCheck(x, y+1, true);
+                }
+                if((type & (uint) NodeType.LEDGE) > 0) {
+                    addNode(x, y+1, type);
+                    addNodeDepthCheck(x, y+1, false);
+                }
+                if(type >= (uint)NodeType.LEDGE) continue;
+                addNode(x, y+1, type);
             }
         }
     }
