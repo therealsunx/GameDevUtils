@@ -8,11 +8,10 @@ public class Pathfinder : MonoBehaviour {
 
     [SerializeField] GraphGenerator graph;
 
-    List<Node> FindPath(){
-        Node? start = FindClosestNode(seeker.position);
-        if(start is null) return null;
-        Node? finish = FindClosestNode(target.position);
-        if(finish is null) return null;
+    public List<Node> FindPath(Transform seeker, Transform target){
+        Node start, finish;
+        if(!FindClosestNode(seeker.position, out start)) return null;
+        if(!FindClosestNode(target.position, out finish)) return null;
 
         Dictionary<Node, Node> cameFrom = new Dictionary<Node, Node>();
         HashSet<Node> openSet = new HashSet<Node>();
@@ -69,29 +68,37 @@ public class Pathfinder : MonoBehaviour {
 
     void OnDrawGizmos(){
         Gizmos.color = Color.red;
-        Gizmos.DrawSphere(FindClosestNode(seeker.position).position, 0.2f);
-        Gizmos.DrawSphere(FindClosestNode(target.position).position, 0.2f);
+        Node _seek, _trgt;
+        if(FindClosestNode(seeker.position, out _seek)) Gizmos.DrawSphere(_seek.position, 0.2f);
+        if(FindClosestNode(target.position, out _trgt)) Gizmos.DrawSphere(_trgt.position, 0.2f);
 
-        List<Node> path = FindPath();
+        List<Node> path = FindPath(seeker, target);
         if(path.Count == 0) return;
         for(int i=0; i < path.Count-1; i++)
             Gizmos.DrawLine((Vector3) path[i].position, (Vector3) path[i+1].position);
     }
 
-    Node? FindClosestNode(Vector3 position){
+    bool FindClosestNode(Vector3 position, out Node node){
         Vector2Int pos = new Vector2Int(Mathf.FloorToInt(position.x), Mathf.FloorToInt(position.y));
         Vector2Int off = Vector2Int.zero;
 
         for(int d=0; d >= -5; d--){
             for(int w=0; w <= 5; w++){
                 off.Set(w, d);
-                if(graph.nodes.ContainsKey(pos + off)) return graph.nodes[pos+off];
+                if(graph.nodes.ContainsKey(pos + off)){
+                    node = graph.nodes[pos+off];
+                    return true;
+                }
                 if(w>0){ 
                     off.Set(-w, d);
-                    if(graph.nodes.ContainsKey(pos + off)) return graph.nodes[pos+off];
+                    if(graph.nodes.ContainsKey(pos + off)){
+                        node = graph.nodes[pos+off];
+                        return true;
+                    }
                 }
             }
         }
-        return null;
+        node = null;
+        return false;
     }
 }

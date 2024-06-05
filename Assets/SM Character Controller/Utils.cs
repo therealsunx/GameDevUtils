@@ -15,7 +15,7 @@ public enum NodeType {
     NONE=0b0,
     LCRNR = 0b1,
     RCRNR = 0b10,
-    LEDGE= 0b100,
+    LEDGE = 0b100,
     REDGE = 0b1000,
     JMPPT = 0b10000
 }

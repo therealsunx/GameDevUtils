@@ -9,7 +9,7 @@ public class GraphGenerator : MonoBehaviour {
     [HideInInspector] public Dictionary<Vector2Int, Node> nodes = new Dictionary<Vector2Int, Node>();
 
     void OnDrawGizmos(){
-        if(nodes.Count == 0) GenerateGraph();
+        GenerateGraph();
         foreach(Node node in nodes.Values){
             Gizmos.color = Color.green;
             Gizmos.DrawSphere(node.position,  0.2f);
@@ -23,6 +23,10 @@ public class GraphGenerator : MonoBehaviour {
         // Gizmos.color = Color.red;
         // Gizmos.DrawSphere(new Vector3(c.x, c.y, 0f), 0.2f);
         // }
+    }
+
+    void Start(){
+        GenerateGraph();
     }
 
     void GenerateGraph(){
