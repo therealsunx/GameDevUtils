@@ -398,7 +398,7 @@ Transform:
   m_GameObject: {fileID: 530471894}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 16.32, y: -4.29, z: 0}
+  m_LocalPosition: {x: -16.14, y: -1.07, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -441,7 +441,7 @@ BoxCollider2D:
   m_GameObject: {fileID: 530471894}
   m_Enabled: 1
   m_Density: 1
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 6200000, guid: 93e98540a47720888a9b1bc0432b927f, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -492,7 +492,7 @@ MonoBehaviour:
   pathfinder: {fileID: 1309943546}
   speedX: 5
   speedY: 15
-  refreshTime: 0.5
+  refreshTime: 10
   player: {fileID: 1550929352}
   groundCheck: {fileID: 1733462455}
   groundLayer:
@@ -3036,7 +3036,7 @@ Transform:
   m_GameObject: {fileID: 1550929350}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -12.34, y: -3.96, z: 0}
+  m_LocalPosition: {x: 15.73, y: -8.25, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3051,7 +3051,7 @@ BoxCollider2D:
   m_GameObject: {fileID: 1550929350}
   m_Enabled: 1
   m_Density: 1
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 6200000, guid: 93e98540a47720888a9b1bc0432b927f, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -3113,7 +3113,7 @@ Rigidbody2D:
   m_Interpolate: 1
   m_SleepingMode: 1
   m_CollisionDetection: 1
-  m_Constraints: 0
+  m_Constraints: 4
 --- !u!1 &1733462454
 GameObject:
   m_ObjectHideFlags: 0

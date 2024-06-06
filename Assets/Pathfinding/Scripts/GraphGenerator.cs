@@ -13,10 +13,10 @@ public class GraphGenerator : MonoBehaviour {
         foreach(Node node in nodes.Values){
             Gizmos.color = Color.green;
             Gizmos.DrawSphere(node.position,  0.2f);
-            foreach(Node n in node.neighbours){
-                Gizmos.color = Color.grey;
-                Gizmos.DrawLine(node.position, n.position);
-            }
+//          foreach(Node n in node.neighbours){
+//              Gizmos.color = Color.grey;
+//              Gizmos.DrawLine(node.position, n.position);
+//          }
         }
 
         // foreach(Vector2Int c in nodes.Keys){

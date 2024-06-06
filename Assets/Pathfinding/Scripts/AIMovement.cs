@@ -66,26 +66,34 @@ public class AIMovement : MonoBehaviour {
         bool grounded = Physics2D.OverlapBox(groundCheck.position, groundCheck.localScale, 0f, groundLayer);
         Vector2 del = target - current;
 
-        Debug.Log(del + " " + grounded);
-
         if(grounded && del.y > 0f){
-            velocity.y = Mathf.Sqrt(-4f * del.y * Physics2D.gravity.y);
-            if(Mathf.Abs(del.x) > 1f){
-                float tan = 10f * del.y / del.x;
-                velocity.x = velocity.y / tan;
+            if(Mathf.Abs(del.x)<1.1f) {
+                velocity.x = del.x < 0f? speedX : -speedX;
+                return;
             }
-        }else if(Mathf.Abs(del.x)<.5f)
-            velocity.x = del.x<0f?-1f:1f;
+            velocity.y = Mathf.Sqrt(-3f * del.y * Physics2D.gravity.y);
+            if(Mathf.Abs(del.x) > 1.9f){
+                float tan = 8f * del.y / del.x;
+                velocity.x = velocity.y / tan;
+            }else velocity.x = 0f;
+        } else {
+            if(del.y>0f) return;
+            if(Mathf.Abs(del.x) < 1.1f)
+                velocity.x = del.x > 0f? 2f : -2f;
+            else
+                velocity.x = del.x > 0f? speedX : -speedX;
+            return;
+        }
+
     }
 
     void JumpDownHandler(){
         bool grounded = Physics2D.OverlapBox(groundCheck.position, groundCheck.localScale, 0f, groundLayer);
         Vector2 del = target - current;
-        if(grounded && del.y < -0.5f){
-            velocity.x = del.x * Mathf.Sqrt(0.5f * Physics2D.gravity.y / del.y);
-        }else{
-            //Debug.Log(del + "yeah");
-        }
+
+        if(!grounded) return;
+        if(del.y < -1.5f) velocity.x = del.x * Mathf.Sqrt(0.6f * Physics2D.gravity.y / del.y);
+        else velocity.x = del.x > 0f? speedX : -speedX;
     }
 
     void JumpHorizontalHandler(){
@@ -94,22 +102,34 @@ public class AIMovement : MonoBehaviour {
         if(grounded) {
             velocity.x = del.x * Physics2D.gravity.y * -0.1f;
             velocity.y = Mathf.Abs(velocity.x);
+            if(velocity.magnitude > speedY) velocity = velocity.normalized * speedY;
         }
     }
 
+    void WalkStateHandler(){
+        Vector2 del = target - current;
+        velocity.x = del.x > 0f? speedX:-speedX;
+    }
+
     void PathStateCheck(){
-        target = path[curWayPoint+1].position;
+        if((curWayPoint + 1) >= path.Count) target = player.position;
+        else target = path[curWayPoint+1].position;
         current = (Vector2) transform.position;
         Vector2 del = target - current;
-        if(del.magnitude > .8f){
+
+        // update current waypoint on graph based on next neighbours
+        Debug.DrawRay(current, del, del.magnitude < 1f?Color.green:Color.yellow);
+        if(del.magnitude > .1f){
             mvState = mvState == MVSTATE.IDLE? MVSTATE.WALK : mvState;
             return;
         }
         curWayPoint++;
+
         if((curWayPoint+1) >= path.Count){
             target = player.position;
             del = target - (Vector2) transform.position;
             mvState = del.y >= .1f? MVSTATE.JUMPUP : MVSTATE.WALK;
+            Debug.Log("Path finished");
             return;
         }
 
@@ -124,25 +144,20 @@ public class AIMovement : MonoBehaviour {
                 mvState = (cur.type & (uint)NodeType.LEDGE) > 0 ? MVSTATE.JUMPHOR : MVSTATE.WALK ;
             }
         }else if(del.y < 0f){
-            mvState = del.y < -1f? MVSTATE.JUMPDOWN : MVSTATE.WALK;
+            mvState = (del.y >= -2.1f && Mathf.Abs(del.x) > Mathf.Abs(del.y))?MVSTATE.JUMPHOR : MVSTATE.JUMPDOWN;
         }else{
             mvState = MVSTATE.JUMPUP;
         }
     }
 
-    void WalkStateHandler(){
-        Vector2 del = path[curWayPoint+1].position - (Vector2) transform.position;
-        velocity.x = del.x > 0f? speedX:-speedX;
-    }
-
     void UpdatePath(){
-        if(_refreshTimer > 0f){
-            _refreshTimer -= Time.deltaTime;
-        }else{
-            _refreshTimer = refreshTime;
-            curWayPoint = 0;
-            path = pathfinder.FindPath(transform, player);
-        }
+      if(_refreshTimer > 0f){
+          _refreshTimer -= Time.deltaTime;
+      }else{
+          _refreshTimer = refreshTime;
+          curWayPoint = 0;
+          path = pathfinder.FindPath(transform, player);
+      }
     }
 
     void OnDrawGizmos(){
