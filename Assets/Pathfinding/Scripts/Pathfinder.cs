@@ -1,33 +1,54 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 
 public class Pathfinder : MonoBehaviour {
-    public Transform seeker, target;
+    public delegate void _OnPathUpdate();
+    public _OnPathUpdate OnPathUpdate;
 
-    [SerializeField] GraphGenerator graph;
+    [HideInInspector] public Node _lastNode = null, _lastTargetNode = null;
+    [HideInInspector] public List<Node> path = null;
+    [HideInInspector] public bool updateReady = false;
 
-    public List<Node> FindPath(Transform seeker, Transform target){
-        Node start, finish;
-        if(!FindClosestNode(seeker.position, out start)) return null;
-        if(!FindClosestNode(target.position, out finish)) return null;
+    public Transform target;
+    [SerializeField] private float _refreshTime;
+    float __rtimer = 0f;
+
+    void Update(){
+        if(__rtimer > 0f) {
+            __rtimer -= Time.deltaTime;
+        }else {
+            updateReady = true;
+        }
+    }
+
+    void OnDrawGizmos(){
+        Gizmos.color = Color.red;
+        if(path is null) return;
+        for(int i=0; i<path.Count-1; i++){
+            Gizmos.DrawLine(path[i].position, path[i+1].position);
+        }
+    }
+
+    public void UpdatePath(){
+        if(!FindClosestNode(transform.position, ref _lastNode)) return;
+        if(!FindClosestNode(target.position, ref _lastTargetNode)) return;
 
         Dictionary<Node, Node> cameFrom = new Dictionary<Node, Node>();
         HashSet<Node> openSet = new HashSet<Node>();
-        openSet.Add(start);
+        openSet.Add(_lastNode);
 
         Dictionary<Node, float> gValues = new Dictionary<Node, float>();
-        foreach(Node n in graph.nodes.Values){
+        foreach(Node n in GraphGenerator.instance.nodes.Values){
             gValues[n] = float.MaxValue;
         }
-        gValues[start] = 0;
+        gValues[_lastNode] = 0;
 
         Dictionary<Node, float> fValues = new Dictionary<Node, float>();
-        foreach(Node n in graph.nodes.Values){
+        foreach(Node n in GraphGenerator.instance.nodes.Values){
             fValues[n] = float.MaxValue;
         }
-        fValues[start] = Vector2.Distance(start.position, finish.position);
+        fValues[_lastNode] = Vector2.Distance(_lastNode.position, _lastTargetNode.position);
 
         Node current;
         while(openSet.Count > 0){
@@ -36,7 +57,15 @@ public class Pathfinder : MonoBehaviour {
                 if(fValues[n] < fValues[current]) current = n;
             }
 
-            if(current == finish) return ReconstructPath(cameFrom, current);
+            if(current == _lastTargetNode){
+                path = ReconstructPath(cameFrom, current);
+                {
+                    updateReady = false;
+                    __rtimer = _refreshTime;
+                    OnPathUpdate();
+                }
+                return;
+            }
             openSet.Remove(current);
 
             foreach(Node n in current.neighbours){
@@ -44,15 +73,13 @@ public class Pathfinder : MonoBehaviour {
                 if(tg < gValues[n]){
                     cameFrom[n] = current;
                     gValues[n] = tg;
-                    fValues[n] = tg + Vector2.Distance(n.position, finish.position);
+                    fValues[n] = tg + Vector2.Distance(n.position, _lastTargetNode.position);
                     if(!openSet.Contains(n)){
                         openSet.Add(n);
                     }
                 }
             }
         }
-        Debug.Log("nooo");
-        return null;
     }
 
     List<Node> ReconstructPath(Dictionary<Node, Node> cameFrom, Node current){
@@ -66,39 +93,26 @@ public class Pathfinder : MonoBehaviour {
         return path;
     }
 
-    void OnDrawGizmos(){
-        Gizmos.color = Color.red;
-        Node _seek, _trgt;
-        if(FindClosestNode(seeker.position, out _seek)) Gizmos.DrawSphere(_seek.position, 0.2f);
-        if(FindClosestNode(target.position, out _trgt)) Gizmos.DrawSphere(_trgt.position, 0.2f);
-
-        List<Node> path = FindPath(seeker, target);
-        if(path.Count == 0) return;
-        for(int i=0; i < path.Count-1; i++)
-            Gizmos.DrawLine((Vector3) path[i].position, (Vector3) path[i+1].position);
-    }
-
-    bool FindClosestNode(Vector3 position, out Node node){
+    bool FindClosestNode(Vector3 position, ref Node node){
         Vector2Int pos = new Vector2Int(Mathf.FloorToInt(position.x), Mathf.FloorToInt(position.y));
         Vector2Int off = Vector2Int.zero;
 
         for(int d=0; d >= -5; d--){
             for(int w=0; w <= 5; w++){
                 off.Set(w, d);
-                if(graph.nodes.ContainsKey(pos + off)){
-                    node = graph.nodes[pos+off];
+                if(GraphGenerator.instance.nodes.ContainsKey(pos + off)){
+                    node = GraphGenerator.instance.nodes[pos+off];
                     return true;
                 }
                 if(w>0){ 
                     off.Set(-w, d);
-                    if(graph.nodes.ContainsKey(pos + off)){
-                        node = graph.nodes[pos+off];
+                    if(GraphGenerator.instance.nodes.ContainsKey(pos + off)){
+                        node = GraphGenerator.instance.nodes[pos+off];
                         return true;
                     }
                 }
             }
         }
-        node = null;
         return false;
     }
 }
